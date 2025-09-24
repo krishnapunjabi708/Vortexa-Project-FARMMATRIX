@@ -1,4 +1,4 @@
-# analytics.py
+# dashboard.py
 
 import streamlit as st
 import pandas as pd
@@ -14,7 +14,7 @@ from typing import Dict, List, Optional
 
 # Set page config for a clean and wide layout
 st.set_page_config(
-    page_title="AgriMarket Intelligence - Price Analytics",
+    page_title="AgriMarket Intelligence - Dashboard",
     page_icon="🌾",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -234,43 +234,6 @@ class AgriculturalDataManager:
             "Mustard": 5050, "Sesame": 7315, "Cotton": 5720
         }
         return msp_data.get(crop, random.randint(1500, 4000))
-    
-    def get_price_trends(self, crop: str, days: int = 30) -> pd.DataFrame:
-        """Get realistic price trends with seasonal variations"""
-        try:
-            # Simulate realistic price trends with seasonality
-            base_price = self._get_base_price(crop)
-            dates = pd.date_range(start=datetime.now() - timedelta(days=days), 
-                                  end=datetime.now(), freq='D')
-            
-            trend_data = []
-            current_price = base_price
-            
-            for date in dates:
-                # Seasonal variation (sinusoidal pattern)
-                day_of_year = date.timetuple().tm_yday
-                seasonal_factor = 1 + 0.2 * math.sin(2 * math.pi * day_of_year / 365)
-                
-                # Random daily fluctuation
-                daily_change = random.uniform(-0.05, 0.05)
-                
-                # Market trend (slight upward trend)
-                trend_factor = 1 + (date - dates[0]).days * 0.001
-                
-                current_price = int(round(base_price * seasonal_factor * trend_factor * (1 + daily_change)))
-                current_price = max(int(base_price * 0.6), min(int(base_price * 1.8), current_price))
-                
-                trend_data.append({
-                    "Date": date,
-                    "Crop": crop,
-                    "Price": current_price
-                })
-            
-            return pd.DataFrame(trend_data)
-            
-        except Exception as e:
-            st.error(f"Error generating price trends: {e}")
-            return pd.DataFrame()
 
 # Initialize data manager
 data_manager = AgriculturalDataManager()
@@ -280,75 +243,208 @@ def main():
     # Header
     st.markdown("""
     <div class="main-header">
-        <h1>🌾 AgriMarket Intelligence Platform - Price Analytics</h1>
+        <h1>🌾 AgriMarket Intelligence Platform - Dashboard</h1>
         <p>Smart Agricultural Market Analysis & Decision Support System</p>
     </div>
     """, unsafe_allow_html=True)
     
-    # Load enhanced data (needed for crop list)
+    # Load enhanced data
     with st.spinner("Loading agricultural market data..."):
         market_df = data_manager.load_market_data()
     
-    st.header("📈 Price Analytics & Trends")
+    st.sidebar.header("📍 Location & Filters")
     
-    col1, col2 = st.columns(2)
+    location_method = st.sidebar.radio("Select Location Method:", ["Manual Input", "GPS Simulation"])
+    
+    if location_method == "Manual Input":
+        farmer_location = st.sidebar.text_input("Enter your location:", "Pune, Maharashtra")
+    else:
+        farmer_location = "GPS: Pune, Maharashtra (18.5204, 73.8567)"
+    
+    st.sidebar.success(f"📍 Current Location: {farmer_location}")
+    
+    max_distance = st.sidebar.slider("Maximum Distance (km):", 0, 400, 100)
+    
+    # Apply filters
+    filtered_df = market_df[market_df["Distance (km)"] <= max_distance]
+    
+    # Main content area
+    st.header("Agricultural Market Dashboard")
+    
+    # Display data statistics
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
-        selected_crop = st.selectbox("Select Crop:", sorted(market_df["Crop"].unique()))
+        st.metric("Total Markets", len(filtered_df["Market"].unique()))
     with col2:
-        trend_period = st.selectbox("Analysis Period:", ["7 Days", "30 Days", "90 Days"])
+        st.metric("Crops Available", len(filtered_df["Crop"].unique()))
+    with col3:
+        st.metric("States Covered", len(filtered_df["State"].unique()))
+    with col4:
+        avg_price = filtered_df["Current Price (₹/quintal)"].mean()
+        st.metric("Avg Price/Quintal", f"₹{avg_price:,.0f}")
     
-    days = 7 if trend_period == "7 Days" else 30 if trend_period == "30 Days" else 90
+    # Search and filters
+    st.subheader("🔍 Market Explorer")
+    col1, col2 = st.columns([2, 1])
     
-    # Get enhanced price trends
-    with st.spinner(f"Generating {selected_crop} price trends..."):
-        trend_data = data_manager.get_price_trends(selected_crop, days)
+    with col1:
+        search_term = st.text_input("Search crops or markets:", key="crop_search", 
+                                    placeholder="Enter crop name or market location")
     
-    if not trend_data.empty:
-        # Colored line chart for ups and downs
-        def create_colored_line(df, trend_period):
-            fig = go.Figure()
-            
-            if len(df) < 2:
-                # If only one point, just plot a simple line
-                fig.add_trace(go.Scatter(
-                    x=df['Date'],
-                    y=df['Price'],
-                    mode='lines+markers',
-                    line=dict(color='blue', width=2),
-                    marker=dict(color='blue', size=6),
-                    showlegend=False
-                ))
-            else:
-                for i in range(len(df) - 1):
-                    x1, y1 = df['Date'].iloc[i], df['Price'].iloc[i]
-                    x2, y2 = df['Date'].iloc[i+1], df['Price'].iloc[i+1]
-                    color = 'green' if y2 >= y1 else 'red'
-                    fig.add_trace(go.Scatter(
-                        x=[x1, x2],
-                        y=[y1, y2],
-                        mode='lines',
-                        line=dict(color=color, width=2),
-                        showlegend=False
-                    ))
-                
-                # Add markers
-                fig.add_trace(go.Scatter(
-                    x=df['Date'],
-                    y=df['Price'],
-                    mode='markers',
-                    marker=dict(color='blue', size=6),
-                    showlegend=False
-                ))
-            
-            fig.update_layout(
-                title=f"{df['Crop'].iloc[0]} Price Trends - {trend_period}",
-                xaxis_title="Date",
-                yaxis_title="Price (₹/quintal)",
-                height=400
-            )
-            return fig
+    # Apply search filter
+    if search_term:
+        search_filter = (
+            filtered_df["Crop"].str.contains(search_term, case=False) | 
+            filtered_df["Market"].str.contains(search_term, case=False) |
+            filtered_df["Location"].str.contains(search_term, case=False)
+        )
+        filtered_df = filtered_df[search_filter]
+    
+    # Improved sorting options
+    available_sorts = ["Distance (Ascending)"]
+    
+    # Check if search term matches any crop
+    if search_term:
+        # Find crops that contain the search term (case-insensitive)
+        matching_crops = [crop for crop in market_df["Crop"].unique() 
+                         if search_term.lower() in crop.lower()]
         
-        st.plotly_chart(create_colored_line(trend_data, trend_period), use_container_width=True)
+        if matching_crops:
+            # Use the first matching crop
+            selected_crop = matching_crops[0]
+            available_sorts.extend([
+                f"Distance for {selected_crop} (Ascending)",
+                f"Price for {selected_crop} (High to Low)"
+            ])
+    
+    with col2:
+        sort_by = st.selectbox("Sort Markets By:", available_sorts)
+    
+    # Determine sort series based on selection
+    if sort_by == "Distance (Ascending)":
+        # Default sorting by distance
+        sort_series = filtered_df.groupby("Market")["Distance (km)"].min().sort_values()
+    
+    elif "Distance for" in sort_by:
+        # Extract crop name from sort option
+        crop_name = sort_by.replace("Distance for ", "").replace(" (Ascending)", "")
+        
+        # Filter data for the specific crop and sort by distance
+        crop_df = filtered_df[filtered_df["Crop"] == crop_name]
+        if not crop_df.empty:
+            sort_series = crop_df.groupby("Market")["Distance (km)"].min().sort_values()
+        else:
+            # Fallback to default sorting if no data for the crop
+            sort_series = filtered_df.groupby("Market")["Distance (km)"].min().sort_values()
+            st.warning(f"No data found for {crop_name} in filtered results. Showing default sorting.")
+    
+    elif "Price for" in sort_by:
+        # Extract crop name from sort option
+        crop_name = sort_by.replace("Price for ", "").replace(" (High to Low)", "")
+        
+        # Filter data for the specific crop and sort by price (high to low)
+        crop_df = filtered_df[filtered_df["Crop"] == crop_name]
+        if not crop_df.empty:
+            sort_series = crop_df.groupby("Market")["Current Price (₹/quintal)"].mean().sort_values(ascending=False)
+        else:
+            # Fallback to default sorting if no data for the crop
+            sort_series = filtered_df.groupby("Market")["Distance (km)"].min().sort_values()
+            st.warning(f"No data found for {crop_name} in filtered results. Showing default sorting.")
+    
+    else:
+        # Default fallback
+        sort_series = filtered_df.groupby("Market")["Distance (km)"].min().sort_values()
+    
+    # Display markets with load more
+    st.markdown(f'<div class="section-header">📍 Available Markets ({len(filtered_df["Market"].unique())})</div>', unsafe_allow_html=True)
+    
+    if filtered_df.empty:
+        st.warning("No markets found matching your criteria. Try adjusting filters.")
+    else:
+        if 'num_markets' not in st.session_state:
+            st.session_state.num_markets = 10
+        
+        # Apply color grading to Price vs MSP column
+        def style_price_vs_msp(val):
+            if val > 0:
+                return 'background-color: #4CAF50; color: white'
+            elif val < 0:
+                return 'background-color: #F44336; color: white'
+            else:
+                return 'background-color: #FFEB3B; color: black'
+        
+        # Display markets in sorted order
+        markets_to_display = sort_series.index[:st.session_state.num_markets]
+        
+        for market in markets_to_display:
+            market_data = filtered_df[filtered_df["Market"] == market]
+            if not market_data.empty:
+                market_info = market_data.iloc[0]
+                
+                with st.expander(f"🏪 {market} ({market_info['Distance (km)']:.0f} km) - {market_info['Location']}"):
+                    col1, col2, col3 = st.columns(3)
+                    
+                    with col1:
+                        st.write(f"**State:** {market_info['State']}")
+                        st.write(f"**Market Size:** {market_info['Market Size']}")
+                        st.write(f"**Last Updated:** {market_info['Last Updated'].strftime('%Y-%m-%d')}")
+                    
+                    with col2:
+                        avg_price = market_data["Current Price (₹/quintal)"].mean()
+                        st.write(f"**Avg Price:** ₹{avg_price:,.0f}/quintal")
+                        st.write(f"**Crops Available:** {len(market_data)}")
+                    
+                    with col3:
+                        above_msp = len(market_data[market_data["Price vs MSP"] > 0])
+                        st.write(f"**Crops above MSP:** {above_msp}/{len(market_data)}")
+                    
+                    st.dataframe(
+                        market_data[["Crop", "Current Price (₹/quintal)", "MSP (₹/quintal)", "Price vs MSP", "Quality Grade"]]
+                        .sort_values("Current Price (₹/quintal)", ascending=False)
+                        .style.applymap(style_price_vs_msp, subset=["Price vs MSP"]),
+                        use_container_width=True
+                    )
+        
+        if st.session_state.num_markets < len(sort_series) and st.button("Load More Markets"):
+            st.session_state.num_markets += 10
+            st.rerun()
+    
+    # Summary table instead of map
+    st.markdown('<div class="section-header">📊 Crop-wise Best Prices</div>', unsafe_allow_html=True)
+    
+    if not filtered_df.empty:
+        best_df = filtered_df.loc[filtered_df.groupby('Crop')['Current Price (₹/quintal)'].idxmax()]
+        best_df = best_df[['Crop', 'Current Price (₹/quintal)', 'Market', 'Distance (km)', 'Location', 'Price vs MSP']]
+        best_df = best_df.sort_values('Current Price (₹/quintal)', ascending=False)
+        st.dataframe(best_df.style.applymap(style_price_vs_msp, subset=["Price vs MSP"]), use_container_width=True)
+    
+    st.markdown('<div class="section-header">📈 Overall Market Summary</div>', unsafe_allow_html=True)
+    
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        if not filtered_df.empty:
+            highest_crop = filtered_df.loc[filtered_df['Current Price (₹/quintal)'].idxmax()]['Crop']
+            st.metric("Highest Priced Crop", highest_crop)
+        else:
+            st.metric("Highest Priced Crop", "-")
+    with col2:
+        if not filtered_df.empty:
+            highest_price = filtered_df['Current Price (₹/quintal)'].max()
+            st.metric("Highest Price", f"₹{highest_price:,.0f}")
+        else:
+            st.metric("Highest Price", "-")
+    with col3:
+        if not filtered_df.empty:
+            avg_msp_diff = filtered_df['Price vs MSP'].mean()
+            st.metric("Avg Price vs MSP", f"₹{avg_msp_diff:,.0f}")
+        else:
+            st.metric("Avg Price vs MSP", "-")
+    with col4:
+        if not filtered_df.empty:
+            num_above_msp = (filtered_df['Price vs MSP'] > 0).sum()
+            st.metric("Prices Above MSP", f"{num_above_msp} / {len(filtered_df)}")
+        else:
+            st.metric("Prices Above MSP", "-")
 
 if __name__ == "__main__":
     main()
