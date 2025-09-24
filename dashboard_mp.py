@@ -252,7 +252,7 @@ def main():
     with st.spinner("Loading agricultural market data..."):
         market_df = data_manager.load_market_data()
     
-    st.sidebar.header("📍 Location & Filters")
+    st.sidebar.header(" Location & Filters")
     
     location_method = st.sidebar.radio("Select Location Method:", ["Manual Input", "GPS Simulation"])
     
@@ -261,7 +261,7 @@ def main():
     else:
         farmer_location = "GPS: Pune, Maharashtra (18.5204, 73.8567)"
     
-    st.sidebar.success(f"📍 Current Location: {farmer_location}")
+    st.sidebar.success(f"Current Location: {farmer_location}")
     
     max_distance = st.sidebar.slider("Maximum Distance (km):", 0, 400, 100)
     
@@ -356,7 +356,7 @@ def main():
         sort_series = filtered_df.groupby("Market")["Distance (km)"].min().sort_values()
     
     # Display markets with load more
-    st.markdown(f'<div class="section-header">📍 Available Markets ({len(filtered_df["Market"].unique())})</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="section-header"> Available Markets ({len(filtered_df["Market"].unique())})</div>', unsafe_allow_html=True)
     
     if filtered_df.empty:
         st.warning("No markets found matching your criteria. Try adjusting filters.")
@@ -381,7 +381,7 @@ def main():
             if not market_data.empty:
                 market_info = market_data.iloc[0]
                 
-                with st.expander(f"🏪 {market} ({market_info['Distance (km)']:.0f} km) - {market_info['Location']}"):
+                with st.expander(f" {market} ({market_info['Distance (km)']:.0f} km) - {market_info['Location']}"):
                     col1, col2, col3 = st.columns(3)
                     
                     with col1:
@@ -410,7 +410,7 @@ def main():
             st.rerun()
     
     # Summary table instead of map
-    st.markdown('<div class="section-header">📊 Crop-wise Best Prices</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header"> Crop-wise Best Prices</div>', unsafe_allow_html=True)
     
     if not filtered_df.empty:
         best_df = filtered_df.loc[filtered_df.groupby('Crop')['Current Price (₹/quintal)'].idxmax()]
@@ -418,7 +418,7 @@ def main():
         best_df = best_df.sort_values('Current Price (₹/quintal)', ascending=False)
         st.dataframe(best_df.style.applymap(style_price_vs_msp, subset=["Price vs MSP"]), use_container_width=True)
     
-    st.markdown('<div class="section-header">📈 Overall Market Summary</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-header"> Overall Market Summary</div>', unsafe_allow_html=True)
     
     col1, col2, col3, col4 = st.columns(4)
     with col1:

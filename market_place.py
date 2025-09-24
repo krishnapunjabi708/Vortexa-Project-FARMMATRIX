@@ -280,7 +280,7 @@ def main():
     # Header
     st.markdown("""
     <div class="main-header">
-        <h1>🌾 AgriMarket Intelligence Platform - Price Analytics</h1>
+        <h1> AgriMarket Intelligence Platform - Price Analytics</h1>
         <p>Smart Agricultural Market Analysis & Decision Support System</p>
     </div>
     """, unsafe_allow_html=True)
@@ -289,7 +289,7 @@ def main():
     with st.spinner("Loading agricultural market data..."):
         market_df = data_manager.load_market_data()
     
-    st.header("📈 Price Analytics & Trends")
+    st.header("Price Analytics & Trends")
     
     col1, col2 = st.columns(2)
     with col1:
